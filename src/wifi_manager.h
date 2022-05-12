@@ -33,7 +33,8 @@ Contains the freeRTOS task and all necessary support
 #define WIFI_MANAGER_H_INCLUDED
 
 #include <stdbool.h>
-
+#include "esp_wifi_types.h"
+#include "esp_netif_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -305,6 +306,12 @@ char* wifi_manager_get_ip_info_json();
 
 void wifi_manager_scan_async();
 
+
+/**
+ * @brief Delete current STA wifi config from flash ram storage.
+ *
+ */
+esp_err_t wifi_manager_delete_sta_config();
 
 /**
  * @brief saves the current STA wifi config to flash ram storage.

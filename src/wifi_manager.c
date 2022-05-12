@@ -212,6 +212,31 @@ void wifi_manager_start(){
 	xTaskCreate(&wifi_manager, "wifi_manager", 4096, NULL, WIFI_MANAGER_TASK_PRIORITY, &task_wifi_manager);
 }
 
+esp_err_t wifi_manager_delete_sta_config() {
+	nvs_handle handle;
+	esp_err_t esp_err;
+	if(nvs_sync_lock( portMAX_DELAY )){
+
+		esp_err = nvs_open(wifi_manager_nvs_namespace, NVS_READWRITE, &handle);
+
+		if(esp_err != ESP_OK){
+			nvs_sync_unlock();
+			return false;
+		}
+
+		esp_err = nvs_erase_all(handle);
+		if (esp_err != ESP_OK){
+			nvs_sync_unlock();
+			return esp_err;
+		}
+
+		nvs_close(handle);
+		nvs_sync_unlock();
+	}
+
+	return ESP_OK;
+}
+
 esp_err_t wifi_manager_save_sta_config(){
 
 	nvs_handle handle;
@@ -590,7 +615,7 @@ static void wifi_manager_event_handler(void* arg, esp_event_base_t event_base, i
 			break;
 
 		/* If esp_wifi_stop() returns ESP_OK and the current Wi-Fi mode is Station or AP+Station, then this event will arise.
-		 * Upon receiving this event, the event task will release the station’s IP address, stop the DHCP client, remove
+		 * Upon receiving this event, the event task will release the station's IP address, stop the DHCP client, remove
 		 * TCP/UDP-related connections and clear the LwIP station netif, etc. The application event callback generally does
 		 * not need to do anything. */
 		case WIFI_EVENT_STA_STOP:
@@ -616,16 +641,16 @@ static void wifi_manager_event_handler(void* arg, esp_event_base_t event_base, i
 		 *     with the same SSID, the disconnected event is raised after the station fails to connect all of the found APs.
 		 *
 		 *     When the Wi-Fi connection is disrupted because of specific reasons, e.g., the station continuously loses N beacons,
-		 *     the AP kicks off the station, the AP’s authentication mode is changed, etc.
+		 *     the AP kicks off the station, the AP's authentication mode is changed, etc.
 		 *
-		 * Upon receiving this event, the default behavior of the event task is: - Shuts down the station’s LwIP netif.
+		 * Upon receiving this event, the default behavior of the event task is: - Shuts down the station's LwIP netif.
 		 * - Notifies the LwIP task to clear the UDP/TCP connections which cause the wrong status to all sockets. For socket-based
 		 * applications, the application callback can choose to close all sockets and re-create them, if necessary, upon receiving
 		 * this event.
 		 *
 		 * The most common event handle code for this event in application is to call esp_wifi_connect() to reconnect the Wi-Fi.
 		 * However, if the event is raised because esp_wifi_disconnect() is called, the application should not call esp_wifi_connect()
-		 * to reconnect. It’s application’s responsibility to distinguish whether the event is caused by esp_wifi_disconnect() or
+		 * to reconnect. It's application's responsibility to distinguish whether the event is caused by esp_wifi_disconnect() or
 		 * other reasons. Sometimes a better reconnect strategy is required, refer to <Wi-Fi Reconnect> and
 		 * <Scan When Wi-Fi Is Connecting>.
 		 *
@@ -648,8 +673,8 @@ static void wifi_manager_event_handler(void* arg, esp_event_base_t event_base, i
 		 *    and the application closes the socket and re-creates it when necessary.
 		 *
 		 * In above scenario, ideally, the application sockets and the network layer should not be affected, since the Wi-Fi
-		 * connection only fails temporarily and recovers very quickly. The application can enable “Keep TCP connections when
-		 * IP changed” via LwIP menuconfig.*/
+		 * connection only fails temporarily and recovers very quickly. The application can enable "Keep TCP connections when
+		 * IP changed" via LwIP menuconfig.*/
 		case WIFI_EVENT_STA_DISCONNECTED:
 			ESP_LOGI(TAG, "WIFI_EVENT_STA_DISCONNECTED");
 
@@ -713,7 +738,7 @@ static void wifi_manager_event_handler(void* arg, esp_event_base_t event_base, i
 		 * or when the IPV4 address is changed. The event means that everything is ready and the application can begin
 		 * its tasks (e.g., creating sockets).
 		 * The IPV4 may be changed because of the following reasons:
-		 *    The DHCP client fails to renew/rebind the IPV4 address, and the station’s IPV4 is reset to 0.
+		 *    The DHCP client fails to renew/rebind the IPV4 address, and the station's IPV4 is reset to 0.
 		 *    The DHCP client rebinds to a different address.
 		 *    The static-configured IPV4 address is changed.
 		 * Whether the IPV4 address is changed or NOT is indicated by field ip_change of ip_event_got_ip_t.
@@ -735,10 +760,10 @@ static void wifi_manager_event_handler(void* arg, esp_event_base_t event_base, i
 			break;
 
 		/* This event arises when the IPV4 address become invalid.
-		 * IP_STA_LOST_IP doesn’t arise immediately after the WiFi disconnects, instead it starts an IPV4 address lost timer,
-		 * if the IPV4 address is got before ip lost timer expires, IP_EVENT_STA_LOST_IP doesn’t happen. Otherwise, the event
+		 * IP_STA_LOST_IP doesn't arise immediately after the WiFi disconnects, instead it starts an IPV4 address lost timer,
+		 * if the IPV4 address is got before ip lost timer expires, IP_EVENT_STA_LOST_IP doesn't happen. Otherwise, the event
 		 * arises when IPV4 address lost timer expires.
-		 * Generally the application don’t need to care about this event, it is just a debug event to let the application
+		 * Generally the application don't need to care about this event, it is just a debug event to let the application
 		 * know that the IPV4 address is lost. */
 		case IP_EVENT_STA_LOST_IP:
 			ESP_LOGI(TAG, "IP_EVENT_STA_LOST_IP");
@@ -1218,7 +1243,7 @@ void wifi_manager( void * pvParameters ){
 				http_app_start(true);
 
 				/* start DNS */
-				dns_server_start();
+				//dns_server_start();
 
 				/* callback */
 				if(cb_ptr_arr[msg.code]) (*cb_ptr_arr[msg.code])(NULL);
@@ -1240,7 +1265,7 @@ void wifi_manager( void * pvParameters ){
 					esp_wifi_set_mode(WIFI_MODE_STA);
 
 					/* stop DNS */
-					dns_server_stop();
+					//dns_server_stop();
 
 					/* restart HTTP daemon */
 					http_app_stop();
@@ -1283,7 +1308,7 @@ void wifi_manager( void * pvParameters ){
 				else { abort(); }
 
 				/* bring down DNS hijack */
-				dns_server_stop();
+				//dns_server_stop();
 
 				/* start the timer that will eventually shutdown the access point
 				 * We check first that it's actually running because in case of a boot and restore connection
